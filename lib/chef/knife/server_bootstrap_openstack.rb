@@ -1,6 +1,6 @@
 #
-# Author:: Fletcher Nichol (<fnichol@nichol.ca>)
-# Copyright:: Copyright (c) 2013 Fletcher Nichol
+# Author:: John Bellone (<jbellone@bloomberg.net>)
+# Copyright:: Copyright (c) 2014 Bloomberg Finance L.P.
 # License:: Apache License, Version 2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,9 +20,9 @@ require 'chef/knife/server_bootstrap_base'
 
 class Chef
   class Knife
-    class ServerBootstrapLinode < Knife
+    class ServerBootstrapOpenstack < Knife
 
-      banner "knife server bootstrap linode (options)"
+      banner "knife server bootstrap openstack (options)"
 
       include Knife::ServerBootstrapBase
 
@@ -31,18 +31,18 @@ class Chef
         require 'knife/server/credentials'
 
         begin
-          require 'chef/knife/linode_server_create'
+          require 'chef/knife/openstack_server_create'
           require 'fog'
-          Chef::Knife::LinodeServerCreate.load_deps
+          Chef::Knife::OpenstackServerCreate.load_deps
 
           current_options = self.options
-          self.options = Chef::Knife::LinodeServerCreate.options.dup
+          self.options = Chef::Knife::OpenstackServerCreate.options.dup
           self.options.merge!(current_options)
         rescue LoadError => ex
           ui.error [
-            "Knife plugin knife-linode could not be loaded.",
-            "Please add the knife-linode gem to your Gemfile or",
-            "install the gem manually with `gem install knife-linode'.",
+            "Knife plugin knife-openstack could not be loaded.",
+            "Please add the knife-openstack gem to your Gemfile or",
+            "install the gem manually with `gem install knife-openstack'.",
             "(#{ex.message})"
           ].join(" ")
           exit 1
@@ -51,18 +51,18 @@ class Chef
 
       def run
         validate!
-        linode_bootstrap.run
+        openstack_bootstrap.run
         fetch_validation_key
         create_root_client
         install_client_key
       end
 
-      def linode_bootstrap
+      def openstack_bootstrap
         ENV['WEBUI_PASSWORD'] = config_val(:webui_password)
         ENV['AMQP_PASSWORD'] = config_val(:amqp_password)
         ENV['NO_TEST'] = "1" if config[:no_test]
-        bootstrap = Chef::Knife::LinodeServerCreate.new
-        Chef::Knife::LinodeServerCreate.options.keys.each do |attr|
+        bootstrap = Chef::Knife::OpenstackServerCreate.new
+        Chef::Knife::OpenstackServerCreate.options.keys.each do |attr|
           value = config_val(attr)
           bootstrap.config[attr] = value unless ((value.is_a?(Array) and value[1].nil?) or value.nil?)
         end
@@ -70,16 +70,20 @@ class Chef
         bootstrap
       end
 
-      def linode_connection
-        @linode_connection ||= Fog::Compute.new(
-          :provider => 'Linode',
-          :linode_api_key => config_val(:linode_api_key)
+      def openstack_connection
+        @openstack_connection ||= Fog::Compute.new(
+          :provider => :openstack,
+          :openstack_username => config_val(:openstack_username),
+          :openstack_password => config_val(:openstack_password),
+          :openstack_auth_url => config_val(:openstack_auth_url),
+          :openstack_tenant => config_val(:openstack_tenant),
+          :openstack_region => config_val(:openstack_region)
         )
       end
 
       def server_ip_address
-        server = linode_connection.servers.find do |s|
-          s.status == 1 && s.name == config_val(:linode_node_name)
+        server = openstack_connection.servers.find do |s|
+          s.status == 1 && s.name == config_val(:openstack_node_name)
         end
 
         server && server.public_ip_address
@@ -93,7 +97,7 @@ class Chef
           exit 1
         end
         if config_val(:platform) == "auto"
-          ui.error "Auto platform mode cannot be used with knife-linode plugin"
+          ui.error "Auto platform mode cannot be used with knife-openstack plugin"
           exit 1
         end
       end
@@ -102,7 +106,7 @@ class Chef
         opts = {
           :host     => server_ip_address,
           :user     => config_val(:ssh_user),
-          :port     => "22",
+          :port     => config_val(:ssh_port),
           :keys     => [config_val(:identity_file)].compact,
           :password => config_val(:ssh_password)
         }

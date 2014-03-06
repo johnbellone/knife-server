@@ -58,7 +58,8 @@ class Chef
         bootstrap = Chef::Knife::Bootstrap.new
         bootstrap.name_args = [ config[:host] ]
         Chef::Knife::Bootstrap.options.keys.each do |attr|
-          bootstrap.config[attr] = config_val(attr)
+          value = config_val(attr)
+          bootstrap.config[attr] = value unless ((value.is_a?(Array) and value[1].nil?) or value.nil?)
         end
         bootstrap.ui = self.ui
         bootstrap.config[:distro] = bootstrap_distro

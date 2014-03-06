@@ -72,7 +72,8 @@ class Chef
         ENV['NO_TEST'] = "1" if config[:no_test]
         bootstrap = Chef::Knife::Ec2ServerCreate.new
         Chef::Knife::Ec2ServerCreate.options.keys.each do |attr|
-          bootstrap.config[attr] = config_val(attr)
+          value = config_val(attr)
+          bootstrap.config[attr] = value unless ((value.is_a?(Array) and value[1].nil?) or value.nil?)
         end
         bootstrap.config[:tags] = bootstrap_tags
         bootstrap.config[:distro] = bootstrap_distro
