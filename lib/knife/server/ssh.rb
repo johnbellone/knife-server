@@ -25,7 +25,7 @@ module Knife
       USER_SWITCH_COMMAND = %[sudo USER=root HOME="$(getent passwd root | cut -d : -f 6)"]
 
       def initialize(params)
-        options = DEFAULT_OPTIONS.merge(params)
+        options = DEFAULT_OPTIONS.merge(params) { |k,o,n| n = o if n }
 
         @host = options.delete(:host)
         @user = options.delete(:user)
